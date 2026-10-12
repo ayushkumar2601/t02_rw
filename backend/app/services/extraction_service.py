@@ -204,29 +204,24 @@ class ExtractionService:
         candidate = CandidateLeadExtraction()
 
         # Company info extraction
-        # e.g. "We run an e-commerce company called Acme Digital" or "Acme Digital, e-commerce"
-        if current_state in (ConversationState.GREETING, ConversationState.ASK_COMPANY) or "company" in clean or "called" in clean:
-            # Check for patterns like "called <Name>"
-            called_match = re.search(r"called\s+([A-Za-z0-9\s&]+?)(?:,|\.|\band\b|$)", utterance, re.IGNORECASE)
-            if called_match:
-                candidate.company_name = called_match.group(1).strip()
-            elif "acme digital" in clean:
-                candidate.company_name = "Acme Digital"
-            elif current_state == ConversationState.ASK_COMPANY and not candidate.company_name and len(clean.split()) <= 4:
-                # If caller just answered with company name
-                candidate.company_name = utterance.strip()
-
-            # Business type
-            if "e-commerce" in clean or "ecommerce" in clean:
-                candidate.business_type = "E-commerce"
-            elif "saas" in clean:
-                candidate.business_type = "SaaS"
-            elif "healthcare" in clean:
-                candidate.business_type = "Healthcare"
-            elif "real estate" in clean:
-                candidate.business_type = "Real Estate"
-            elif "retail" in clean:
-                candidate.business_type = "Retail"
+        # e.g. "companies name is tectrongo and the business is digital marketing"
+        # or "We run an e-commerce company called Acme Digital" or "Acme Digital, e-commerce"
+        if (
+            current_state in (ConversationState.GREETING, ConversationState.ASK_COMPANY)
+            or "company" in clean
+            or "called" in clean
+            or "business" in clean
+            or "agency" in clean
+            or "marketing" in clean
+            or any(k in clean for k in validation_service.KNOWN_BUSINESS_TYPES)
+        ):
+            c_name, b_type = validation_service.parse_company_info(
+                utterance, is_ask_company_state=(current_state == ConversationState.ASK_COMPANY)
+            )
+            if c_name:
+                candidate.company_name = c_name
+            if b_type:
+                candidate.business_type = b_type
 
         # Company size extraction
         parsed_size = validation_service.parse_spoken_number(utterance)

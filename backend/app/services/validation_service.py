@@ -51,6 +51,181 @@ class ValidationService:
         "thousand": 1000,
     }
 
+    # Common business domains and industries for digital agency qualification
+    KNOWN_BUSINESS_TYPES = {
+        "digital marketing": "Digital Marketing",
+        "marketing": "Digital Marketing",
+        "marketing agency": "Marketing Agency",
+        "seo": "SEO & Digital Marketing",
+        "social media": "Social Media Marketing",
+        "advertising": "Advertising",
+        "e-commerce": "E-commerce",
+        "ecommerce": "E-commerce",
+        "retail": "Retail",
+        "online store": "E-commerce",
+        "saas": "SaaS",
+        "software": "Software / Tech",
+        "technology": "Technology",
+        "tech": "Technology",
+        "it services": "IT Services",
+        "healthcare": "Healthcare",
+        "health care": "Healthcare",
+        "medical": "Healthcare",
+        "pharma": "Pharmaceuticals",
+        "real estate": "Real Estate",
+        "property": "Real Estate",
+        "finance": "Finance",
+        "fintech": "Fintech",
+        "banking": "Banking / Finance",
+        "insurance": "Insurance",
+        "education": "Education",
+        "edtech": "Edtech",
+        "consulting": "Consulting",
+        "legal": "Legal Services",
+        "law firm": "Legal Services",
+        "manufacturing": "Manufacturing",
+        "logistics": "Logistics & Supply Chain",
+        "transport": "Transportation",
+        "hospitality": "Hospitality",
+        "hotel": "Hospitality",
+        "restaurant": "Food & Beverage",
+        "food": "Food & Beverage",
+        "travel": "Travel & Tourism",
+        "construction": "Construction",
+        "design": "Design & Creative",
+    }
+
+    @classmethod
+    def parse_company_info(
+        cls, text: str, is_ask_company_state: bool = False
+    ) -> Tuple[Optional[str], Optional[str]]:
+        """Extract company name and business type from caller utterance.
+
+        Handles natural spoken structures including:
+        - 'companies name is tectrongo and the business is digital marketing'
+        - 'our company is called Acme Digital and we do e-commerce'
+        - 'Tectrongo, digital marketing'
+        - 'company is Tectrongo'
+        - 'we do digital marketing'
+        """
+        clean = text.strip()
+        lower = clean.lower()
+        company_name: Optional[str] = None
+        business_type: Optional[str] = None
+
+        # 1. Extract business type from known categories (longest match first)
+        for phrase in sorted(cls.KNOWN_BUSINESS_TYPES.keys(), key=len, reverse=True):
+            pattern = rf"\b{re.escape(phrase)}\b"
+            if re.search(pattern, lower):
+                business_type = cls.KNOWN_BUSINESS_TYPES[phrase]
+                break
+
+        # If not matched from dictionary, check dynamic pattern like "business is <...>" or "we do <...>"
+        if not business_type:
+            biz_pattern = (
+                r"(?:the\s+)?(?:business|industry|domain|field)\s+(?:is|does|involves)\s+"
+                r"([A-Za-z0-9\s&/-]+?)(?:,|\.|$|\band\b)"
+            )
+            biz_match = re.search(biz_pattern, clean, re.IGNORECASE)
+            if biz_match:
+                extracted = biz_match.group(1).strip()
+                if extracted and len(extracted.split()) <= 4:
+                    business_type = extracted.title()
+
+        if not business_type:
+            we_do_pattern = (
+                r"(?:we\s+do|we\s+provide|we\s+are\s+in|we\s+are\s+into)\s+"
+                r"([A-Za-z0-9\s&/-]+?)(?:,|\.|$|\band\b)"
+            )
+            we_do_match = re.search(we_do_pattern, clean, re.IGNORECASE)
+            if we_do_match:
+                extracted = we_do_match.group(1).strip()
+                if extracted and len(extracted.split()) <= 4:
+                    business_type = extracted.title()
+
+        # 2. Extract company name using grammatical markers
+        # Pattern 1: "called <NAME>", "named <NAME>"
+        # e.g. "we are an e-commerce company called Acme Digital"
+        comp_pattern_called = (
+            r"(?:called|named)\s+([A-Za-z0-9\s&'-]+?)"
+            r"(?:\s+(?:and\b|&|,|\.|\bour\b|\bthe\b|\bwe\b|\bbusiness\b|\bwhich\b)|$)"
+        )
+        match_called = re.search(comp_pattern_called, clean, re.IGNORECASE)
+        if match_called:
+            candidate = match_called.group(1).strip()
+            if candidate:
+                company_name = candidate
+
+        # Pattern 2: "company('s|s)? (name)? (is)? <NAME> (and | , | . | $)"
+        # Matches: "companies name is tectrongo and the business is digital marketing"
+        if not company_name:
+            comp_pattern_a = (
+                r"(?:our\s+|my\s+|the\s+)?compan(?:ies|y(?:'s)?)\s+(?:name\s+)?(?:is\s+)?"
+                r"(?:called\s+|named\s+)?"
+                r"([A-Za-z0-9\s&'-]+?)"
+                r"(?:\s+(?:and\b|&|,|\.|\bour\b|\bthe\b|\bwe\b|\bbusiness\b|\bindustry\b)|$)"
+            )
+            match_a = re.search(comp_pattern_a, clean, re.IGNORECASE)
+            if match_a:
+                candidate = match_a.group(1).strip()
+                if candidate and candidate.lower() not in ("a", "an", "the", "our", "my", "good"):
+                    company_name = candidate
+
+        # Pattern 3: "name is <NAME>"
+        if not company_name:
+            comp_pattern_c = (
+                r"(?:name\s+is|our\s+name\s+is)\s+([A-Za-z0-9\s&'-]+?)"
+                r"(?:\s+(?:and\b|&|,|\.|\bour\b|\bthe\b|\bwe\b|\bbusiness\b)|$)"
+            )
+            match_c = re.search(comp_pattern_c, clean, re.IGNORECASE)
+            if match_c:
+                candidate = match_c.group(1).strip()
+                if candidate:
+                    company_name = candidate
+
+        # Pattern D: Comma separated pair: "Acme Digital, e-commerce" or "Tectrongo, digital marketing"
+        if not company_name and "," in clean:
+            parts = [p.strip() for p in clean.split(",") if p.strip()]
+            if len(parts) >= 2:
+                first_part = parts[0]
+                if len(first_part.split()) <= 4 and not any(
+                    first_part.lower().startswith(x) for x in ("we ", "i ", "hello", "yes", "no")
+                ):
+                    company_name = first_part
+
+        # Pattern E: "it's <NAME>" or "we are <NAME>"
+        if not company_name:
+            comp_pattern_e = (
+                r"^(?:it'?s|its|we\s+are|we're)\s+([A-Za-z0-9\s&'-]+?)"
+                r"(?:\s+(?:and\b|&|,|\.|\bour\b|\bthe\b|\bwe\b|\bbusiness\b)|$)"
+            )
+            match_e = re.search(comp_pattern_e, clean, re.IGNORECASE)
+            if match_e:
+                candidate = match_e.group(1).strip()
+                if candidate.lower() not in ("an agency", "a company", "an e-commerce company", "fine", "good"):
+                    if not any(candidate.lower() == k for k in cls.KNOWN_BUSINESS_TYPES):
+                        company_name = candidate
+
+        # Pattern F: In ASK_COMPANY state, if caller just speaks their company name (1-4 words)
+        if not company_name and is_ask_company_state:
+            filtered_words = [
+                w for w in re.findall(r"[a-z0-9]+", lower)
+                if w not in ("yes", "yeah", "sure", "ok", "okay")
+            ]
+            if filtered_words and len(filtered_words) <= 4:
+                # If the entire phrase is a known business type, it's business_type not company_name
+                if not any(lower == k for k in cls.KNOWN_BUSINESS_TYPES):
+                    company_name = clean.strip().rstrip(".,!?")
+
+        # Cleanup company name:
+        if company_name:
+            company_name = re.sub(r"^(?:a|an|the)\s+", "", company_name, flags=re.IGNORECASE).strip()
+            # If all lowercase, title-case
+            if company_name.islower():
+                company_name = company_name.title()
+
+        return company_name, business_type
+
     @staticmethod
     def compute_missing_fields(lead: ValidatedLead) -> List[str]:
         """Compute list of missing qualification fields according to the canonical schema.

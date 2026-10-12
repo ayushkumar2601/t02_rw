@@ -3,8 +3,8 @@
 **Date of Execution:** 2026-10-13  
 **Python Environment:** Python 3.11.16  
 **Test Framework:** Pytest 8.4.2 with `pytest-asyncio` 0.26.0  
-**Overall Status:** PASSED (42 / 42 tests passing, 0 failures, 0 errors)  
-**Execution Time:** 0.33 seconds  
+**Overall Status:** PASSED (43 / 43 tests passing, 0 failures, 0 errors)  
+**Execution Time:** 0.36 seconds  
 
 ---
 
@@ -23,7 +23,7 @@ cachedir: .pytest_cache
 rootdir: /Users/ayush/Desktop/task02_reno
 plugins: asyncio-0.26.0, anyio-4.15.1
 asyncio: mode=Mode.STRICT, asyncio_default_test_loop_scope=function
-collected 42 items
+collected 43 items
 
 backend/tests/test_api.py::test_health_check_endpoint PASSED             [  2%]
 backend/tests/test_api.py::test_session_creation PASSED                  [  4%]
@@ -38,37 +38,38 @@ backend/tests/test_api.py::test_provider_failure_and_timeout_resilience PASSED [
 backend/tests/test_extraction.py::test_parse_spoken_number_phrases PASSED [ 26%]
 backend/tests/test_extraction.py::test_parse_budget_utterance_scenarios PASSED [ 28%]
 backend/tests/test_extraction.py::test_deterministic_fallback_intents PASSED [ 30%]
-backend/tests/test_extraction.py::test_extraction_with_mocked_llm_success PASSED [ 33%]
-backend/tests/test_extraction.py::test_extraction_bounded_repair_on_markdown_wrapped_json PASSED [ 35%]
-backend/tests/test_extraction.py::test_extraction_fallback_on_llm_rate_limit PASSED [ 38%]
-backend/tests/test_persistence.py::test_session_lifecycle_persistence PASSED [ 40%]
-backend/tests/test_persistence.py::test_lead_persistence_and_retrieval PASSED [ 42%]
-backend/tests/test_persistence.py::test_duplicate_lead_prevention PASSED [ 45%]
-backend/tests/test_persistence.py::test_duplicate_turn_handling PASSED   [ 47%]
-backend/tests/test_persistence.py::test_session_finalization PASSED      [ 50%]
-backend/tests/test_schemas.py::test_valid_candidate_extraction PASSED    [ 52%]
-backend/tests/test_schemas.py::test_candidate_rejects_negative_company_size PASSED [ 54%]
-backend/tests/test_schemas.py::test_candidate_rejects_negative_budget PASSED [ 57%]
-backend/tests/test_schemas.py::test_candidate_rejects_unexpected_extra_fields PASSED [ 59%]
-backend/tests/test_schemas.py::test_validated_lead_rejects_extra_fields PASSED [ 61%]
-backend/tests/test_schemas.py::test_invalid_budget_period_enum PASSED    [ 64%]
-backend/tests/test_schemas.py::test_invalid_intent_enum PASSED           [ 66%]
+backend/tests/test_extraction.py::test_extraction_with_mocked_llm_success PASSED [ 32%]
+backend/tests/test_extraction.py::test_extraction_bounded_repair_on_markdown_wrapped_json PASSED [ 34%]
+backend/tests/test_extraction.py::test_extraction_fallback_on_llm_rate_limit PASSED [ 37%]
+backend/tests/test_extraction.py::test_parse_company_and_business_type PASSED [ 39%]
+backend/tests/test_persistence.py::test_session_lifecycle_persistence PASSED [ 41%]
+backend/tests/test_persistence.py::test_lead_persistence_and_retrieval PASSED [ 44%]
+backend/tests/test_duplicate_lead_prevention PASSED [ 46%]
+backend/tests/test_duplicate_turn_handling PASSED   [ 48%]
+backend/tests/test_session_finalization PASSED      [ 51%]
+backend/tests/test_schemas.py::test_valid_candidate_extraction PASSED    [ 53%]
+backend/tests/test_schemas.py::test_candidate_rejects_negative_company_size PASSED [ 55%]
+backend/tests/test_candidate_rejects_negative_budget PASSED [ 58%]
+backend/tests/test_schemas.py::test_candidate_rejects_unexpected_extra_fields PASSED [ 60%]
+backend/tests/test_schemas.py::test_validated_lead_rejects_extra_fields PASSED [ 62%]
+backend/tests/test_schemas.py::test_invalid_budget_period_enum PASSED    [ 65%]
+backend/tests/test_schemas.py::test_invalid_intent_enum PASSED           [ 67%]
 backend/tests/test_schemas.py::test_invalid_conversation_state_enum PASSED [ 69%]
-backend/tests/test_schemas.py::test_invalid_email_format PASSED          [ 71%]
-backend/tests/test_schemas.py::test_missing_fields_calculation PASSED    [ 73%]
+backend/tests/test_schemas.py::test_invalid_email_format PASSED          [ 72%]
+backend/tests/test_schemas.py::test_missing_fields_calculation PASSED    [ 74%]
 backend/tests/test_schemas.py::test_turn_request_validation PASSED       [ 76%]
-backend/tests/test_schemas.py::test_llm_extraction_response_schema PASSED [ 78%]
-backend/tests/test_state_machine.py::test_normal_qualification_workflow PASSED [ 80%]
+backend/tests/test_schemas.py::test_llm_extraction_response_schema PASSED [ 79%]
+backend/tests/test_state_machine.py::test_normal_qualification_workflow PASSED [ 81%]
 backend/tests/test_state_machine.py::test_caller_declines_at_greeting PASSED [ 83%]
-backend/tests/test_state_machine.py::test_early_goodbye PASSED           [ 85%]
+backend/tests/test_state_machine.py::test_early_goodbye PASSED           [ 86%]
 backend/tests/test_state_machine.py::test_off_topic_preserves_state PASSED [ 88%]
 backend/tests/test_state_machine.py::test_ambiguous_company_size_clarification PASSED [ 90%]
-backend/tests/test_state_machine.py::test_ambiguous_budget_clarification PASSED [ 92%]
+backend/tests/test_state_machine.py::test_ambiguous_budget_clarification PASSED [ 93%]
 backend/tests/test_state_machine.py::test_caller_correction PASSED       [ 95%]
 backend/tests/test_state_machine.py::test_session_already_ended_rejects_new_turns PASSED [ 97%]
 backend/tests/test_state_machine.py::test_max_clarification_attempts_proceeds PASSED [100%]
 
-============================== 42 passed in 0.33s ==============================
+============================== 43 passed in 0.36s ==============================
 ```
 
 ---

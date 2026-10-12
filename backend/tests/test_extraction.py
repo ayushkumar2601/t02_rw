@@ -158,3 +158,49 @@ async def test_extraction_fallback_on_llm_rate_limit():
     res = await svc.extract_candidate("We have 25 employees", ConversationState.ASK_SIZE, ValidatedLead(), ["company_size"])
     # Fallback extracts the number 25
     assert res.candidate_lead.company_size == 25
+
+
+def test_parse_company_and_business_type():
+    """Test company name and business type extraction from varied natural language phrasing."""
+    # User's exact case:
+    c_name, b_type = validation_service.parse_company_info(
+        "companies name is tectrongo and the business is digital marketing"
+    )
+    assert c_name == "Tectrongo"
+    assert b_type == "Digital Marketing"
+
+    # Variant: "company's name is..."
+    c_name, b_type = validation_service.parse_company_info(
+        "company's name is tectrongo and the business is digital marketing"
+    )
+    assert c_name == "Tectrongo"
+    assert b_type == "Digital Marketing"
+
+    # Variant: "company name is..."
+    c_name, b_type = validation_service.parse_company_info(
+        "company name is tectrongo and the business is digital marketing"
+    )
+    assert c_name == "Tectrongo"
+    assert b_type == "Digital Marketing"
+
+    # Variant: "we are an e-commerce company called Acme Digital"
+    c_name, b_type = validation_service.parse_company_info(
+        "we are an e-commerce company called Acme Digital"
+    )
+    assert c_name == "Acme Digital"
+    assert b_type == "E-commerce"
+
+    # Variant: Comma separated
+    c_name, b_type = validation_service.parse_company_info("Acme Digital, e-commerce")
+    assert c_name == "Acme Digital"
+    assert b_type == "E-commerce"
+
+    # Variant: Comma separated with digital marketing
+    c_name, b_type = validation_service.parse_company_info("Tectrongo, digital marketing")
+    assert c_name == "Tectrongo"
+    assert b_type == "Digital Marketing"
+
+    # Variant: Direct company name in ASK_COMPANY state
+    c_name, b_type = validation_service.parse_company_info("Tectrongo", is_ask_company_state=True)
+    assert c_name == "Tectrongo"
+
