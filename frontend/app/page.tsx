@@ -29,6 +29,7 @@ export default function Home() {
     errorMessage,
     startCall,
     endCall,
+    interruptSpeaking,
     submitTextTurn,
     toggleMute,
     clearError,
@@ -59,6 +60,7 @@ export default function Home() {
           onStartCall={startCall}
           onEndCall={endCall}
           onToggleMute={toggleMute}
+          onInterrupt={interruptSpeaking}
         />
 
         {/* 4. Primary Grid: Transcript + Text Fallback vs Lead Summary */}

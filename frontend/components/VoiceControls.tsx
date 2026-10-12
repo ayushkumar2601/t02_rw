@@ -3,13 +3,13 @@
 import React from 'react';
 import {
   Mic,
-  MicOff,
   PhoneCall,
   PhoneOff,
   Volume2,
   VolumeX,
   Loader2,
   Radio,
+  Hand,
 } from 'lucide-react';
 import { ConversationState } from '@/types';
 import { VoiceSessionStatus } from '@/hooks/useVoiceSession';
@@ -23,6 +23,7 @@ interface VoiceControlsProps {
   onStartCall: () => void;
   onEndCall: () => void;
   onToggleMute: () => void;
+  onInterrupt?: () => void;
 }
 
 export function VoiceControls({
@@ -34,6 +35,7 @@ export function VoiceControls({
   onStartCall,
   onEndCall,
   onToggleMute,
+  onInterrupt,
 }: VoiceControlsProps) {
   const isCallActive = !!sessionId && voiceStatus !== 'idle' && voiceStatus !== 'ended';
 
@@ -48,10 +50,10 @@ export function VoiceControls({
         );
       case 'listening':
         return (
-          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-xs">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-xs animate-pulse">
+            <span className="w-2 h-2 rounded-full bg-emerald-400" />
             <Mic className="w-3.5 h-3.5" />
-            <span>Listening to caller</span>
+            <span>Listening to you (Speak now)</span>
           </div>
         );
       case 'processing':
@@ -65,7 +67,7 @@ export function VoiceControls({
         return (
           <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-violet-500/10 text-violet-400 border border-violet-500/20 text-xs">
             <Radio className="w-3.5 h-3.5 animate-pulse text-violet-400" />
-            <span>Ava speaking</span>
+            <span>Ava speaking (Mic paused)</span>
           </div>
         );
       case 'ended':
@@ -92,8 +94,8 @@ export function VoiceControls({
   return (
     <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-sm">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        {/* Left Side: Call Buttons */}
-        <div className="flex items-center gap-3">
+        {/* Left Side: Call Buttons & Controls */}
+        <div className="flex flex-wrap items-center gap-3">
           {!isCallActive ? (
             <button
               onClick={onStartCall}
@@ -109,6 +111,18 @@ export function VoiceControls({
             >
               <PhoneOff className="w-4 h-4" />
               <span>End Call</span>
+            </button>
+          )}
+
+          {/* Interrupt Button (Visible while Ava is speaking) */}
+          {voiceStatus === 'speaking' && onInterrupt && (
+            <button
+              onClick={onInterrupt}
+              title="Interrupt Ava and speak immediately"
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/30 text-sm font-medium transition-all cursor-pointer active:scale-95 animate-pulse"
+            >
+              <Hand className="w-4 h-4" />
+              <span>Interrupt Ava</span>
             </button>
           )}
 

@@ -26,6 +26,43 @@ export type VoiceSessionStatus =
   | 'ended'
   | 'error';
 
+/**
+ * Detects whether an incoming recognition transcript is an acoustic echo
+ * of what Ava just spoke through the laptop speakers.
+ */
+function isAcousticEcho(transcript: string, agentText: string): boolean {
+  if (!transcript || !agentText) return false;
+  const cleanTranscript = transcript
+    .toLowerCase()
+    .replace(/[^\w\s]/g, '')
+    .trim();
+  const cleanAgent = agentText
+    .toLowerCase()
+    .replace(/[^\w\s]/g, '')
+    .trim();
+
+  if (!cleanTranscript || !cleanAgent) return false;
+
+  // Exact match or agent utterance contains the caller transcript
+  if (cleanAgent.includes(cleanTranscript)) return true;
+
+  // Check word matching for short phrases (e.g. "could you clarify", "marketing budget")
+  const transcriptWords = cleanTranscript.split(/\s+/).filter(Boolean);
+  if (transcriptWords.length <= 4 && transcriptWords.length > 0) {
+    const allInAgent = transcriptWords.every((w) => cleanAgent.includes(w));
+    if (allInAgent) return true;
+  }
+
+  // Token overlap ratio for longer captured echoes
+  const agentWords = new Set(cleanAgent.split(/\s+/).filter(Boolean));
+  const matchedWords = transcriptWords.filter((w) => agentWords.has(w));
+  if (transcriptWords.length >= 2 && matchedWords.length / transcriptWords.length >= 0.7) {
+    return true;
+  }
+
+  return false;
+}
+
 export function useVoiceSession() {
   // Session State
   const [sessionId, setSessionId] = useState<string | null>(null);
@@ -66,13 +103,18 @@ export function useVoiceSession() {
   const recognitionRef = useRef<any>(null);
   const isRecognitionActiveRef = useRef<boolean>(false);
   const isSpeakingRef = useRef<boolean>(false);
+  const isAcousticCooldownRef = useRef<boolean>(false);
+  const cooldownTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const sessionIdRef = useRef<string | null>(null);
+  const sessionStatusRef = useRef<SessionStatus>('active');
   const lastProcessedTurnTextRef = useRef<string>('');
+  const lastSpokenAgentTextRef = useRef<string>('');
   const isProcessingTurnRef = useRef<boolean>(false);
   const isMutedRef = useRef<boolean>(false);
 
   isMutedRef.current = isMuted;
   sessionIdRef.current = sessionId;
+  sessionStatusRef.current = sessionStatus;
 
   // 1. Initial Health Check & Web Speech Detection
   useEffect(() => {
@@ -99,14 +141,150 @@ export function useVoiceSession() {
     return () => clearInterval(interval);
   }, []);
 
-  // 2. Speech Synthesis Helper
+  // 2. Stop Recognition Helper
+  const stopRecognition = useCallback(() => {
+    if (recognitionRef.current && isRecognitionActiveRef.current) {
+      try {
+        recognitionRef.current.abort();
+      } catch {
+        try {
+          recognitionRef.current.stop();
+        } catch {
+          // ignore
+        }
+      }
+      isRecognitionActiveRef.current = false;
+    }
+  }, []);
+
+  // 3. Speech Synthesis Helper
   const stopSpeaking = useCallback(() => {
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
       window.speechSynthesis.cancel();
       isSpeakingRef.current = false;
     }
+    if (cooldownTimeoutRef.current) {
+      clearTimeout(cooldownTimeoutRef.current);
+      cooldownTimeoutRef.current = null;
+    }
+    isAcousticCooldownRef.current = false;
   }, []);
 
+  // 4. Start Speech Recognition
+  const startRecognition = useCallback(() => {
+    if (typeof window === 'undefined') return;
+    const win = window as unknown as IWindow;
+    const SpeechRecognition = win.SpeechRecognition || win.webkitSpeechRecognition;
+
+    if (!SpeechRecognition) {
+      setIsVoiceSupported(false);
+      return;
+    }
+
+    // Do NOT start if Ava is currently speaking, in acoustic cooldown, or processing
+    if (
+      isRecognitionActiveRef.current ||
+      isSpeakingRef.current ||
+      isAcousticCooldownRef.current ||
+      isProcessingTurnRef.current ||
+      sessionStatusRef.current !== 'active'
+    ) {
+      return;
+    }
+
+    try {
+      const recognition = new SpeechRecognition();
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.lang = 'en-US';
+
+      recognition.onstart = () => {
+        isRecognitionActiveRef.current = true;
+        setIsMicAllowed(true);
+        if (!isSpeakingRef.current && !isProcessingTurnRef.current && !isAcousticCooldownRef.current) {
+          setVoiceStatus('listening');
+        }
+      };
+
+      recognition.onresult = (event: any) => {
+        // Multi-Layer Echo Defense 1: If Ava is speaking or in post-speech cooldown, discard completely
+        if (isSpeakingRef.current || isAcousticCooldownRef.current || isProcessingTurnRef.current) {
+          setInterimTranscript('');
+          return;
+        }
+
+        let interim = '';
+        let finalUtterance = '';
+
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+          const item = event.results[i];
+          if (item.isFinal) {
+            finalUtterance += item[0].transcript;
+          } else {
+            interim += item[0].transcript;
+          }
+        }
+
+        // Multi-Layer Echo Defense 2: Filter interim speech if it contains Ava's last spoken utterance
+        if (isAcousticEcho(interim, lastSpokenAgentTextRef.current)) {
+          setInterimTranscript('');
+          return;
+        }
+
+        setInterimTranscript(interim);
+
+        const trimmedFinal = finalUtterance.trim();
+        if (trimmedFinal && trimmedFinal !== lastProcessedTurnTextRef.current) {
+          // Multi-Layer Echo Defense 3: Filter final utterance if it matches Ava's last words
+          if (isAcousticEcho(trimmedFinal, lastSpokenAgentTextRef.current)) {
+            console.warn('[Voice] Echo suppression: Filtered laptop speaker bleed:', trimmedFinal);
+            setInterimTranscript('');
+            return;
+          }
+
+          setInterimTranscript('');
+          lastProcessedTurnTextRef.current = trimmedFinal;
+          // Process caller turn
+          handleCallerUtterance(trimmedFinal);
+        }
+      };
+
+      recognition.onerror = (event: any) => {
+        if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+          setIsMicAllowed(false);
+          setErrorMessage('Microphone access denied. You can use the text interface fallback below.');
+          setVoiceStatus('error');
+        } else if (event.error !== 'no-speech' && event.error !== 'aborted') {
+          console.warn('Speech recognition warning:', event.error);
+        }
+      };
+
+      recognition.onend = () => {
+        isRecognitionActiveRef.current = false;
+        // Strictly prevent automatic restart if Ava is speaking, cooling down, or turn is processing
+        if (
+          sessionIdRef.current &&
+          sessionStatusRef.current === 'active' &&
+          !isProcessingTurnRef.current &&
+          !isSpeakingRef.current &&
+          !isAcousticCooldownRef.current
+        ) {
+          try {
+            recognition.start();
+          } catch {
+            // ignore
+          }
+        }
+      };
+
+      recognitionRef.current = recognition;
+      recognition.start();
+    } catch (err) {
+      console.error('Failed to initialize SpeechRecognition:', err);
+    }
+  }, []);
+
+  // 5. Sequential Turn-Taking Speak Function
   const speakText = useCallback(
     (text: string, onEnd?: () => void) => {
       if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
@@ -114,7 +292,13 @@ export function useVoiceSession() {
         return;
       }
 
+      // 1. Immediately kill recognition to prevent laptop mic from picking up speaker output
+      stopRecognition();
       stopSpeaking();
+      setInterimTranscript('');
+
+      // Track the agent's utterance for echo cancellation
+      lastSpokenAgentTextRef.current = text.trim();
 
       if (isMutedRef.current) {
         if (onEnd) onEnd();
@@ -129,7 +313,10 @@ export function useVoiceSession() {
       // Pick a clean natural English voice if available
       const voices = window.speechSynthesis.getVoices();
       const preferredVoice = voices.find(
-        (v) => (v.lang.startsWith('en') && v.name.includes('Natural')) || v.name.includes('Google') || v.name.includes('Samantha')
+        (v) =>
+          (v.lang.startsWith('en') && v.name.includes('Natural')) ||
+          v.name.includes('Google') ||
+          v.name.includes('Samantha')
       );
       if (preferredVoice) {
         utterance.voice = preferredVoice;
@@ -138,123 +325,64 @@ export function useVoiceSession() {
       utterance.onstart = () => {
         isSpeakingRef.current = true;
         setVoiceStatus('speaking');
+        // Double-check recognition is stopped
+        stopRecognition();
+      };
+
+      const finishSpeaking = () => {
+        isSpeakingRef.current = false;
+
+        // Acoustic dissipation cooldown:
+        // Wait 600ms for laptop speaker reverberation and audio buffers to completely clear
+        // before re-enabling the microphone.
+        isAcousticCooldownRef.current = true;
+
+        if (cooldownTimeoutRef.current) {
+          clearTimeout(cooldownTimeoutRef.current);
+        }
+
+        cooldownTimeoutRef.current = setTimeout(() => {
+          isAcousticCooldownRef.current = false;
+          if (
+            sessionIdRef.current &&
+            sessionStatusRef.current === 'active' &&
+            !isProcessingTurnRef.current
+          ) {
+            setVoiceStatus('listening');
+            startRecognition();
+          }
+          if (onEnd) onEnd();
+        }, 600);
       };
 
       utterance.onend = () => {
-        isSpeakingRef.current = false;
-        if (onEnd) onEnd();
+        finishSpeaking();
       };
 
       utterance.onerror = (e) => {
         console.warn('Speech synthesis error:', e);
-        isSpeakingRef.current = false;
-        if (onEnd) onEnd();
+        finishSpeaking();
       };
 
       window.speechSynthesis.speak(utterance);
     },
-    [stopSpeaking]
+    [startRecognition, stopRecognition, stopSpeaking]
   );
 
-  // 3. Start / Stop Speech Recognition
-  const stopRecognition = useCallback(() => {
-    if (recognitionRef.current && isRecognitionActiveRef.current) {
-      try {
-        recognitionRef.current.stop();
-      } catch {
-        // ignore
-      }
-      isRecognitionActiveRef.current = false;
+  // 6. Manual Interrupt (Safe user barge-in that stops Ava and immediately activates mic)
+  const interruptSpeaking = useCallback(() => {
+    if (isSpeakingRef.current || isAcousticCooldownRef.current) {
+      stopSpeaking();
+      setInterimTranscript('');
+      setVoiceStatus('listening');
+      // Delay mic start by 200ms to allow audio hardware buffer to flush
+      setTimeout(() => {
+        startRecognition();
+      }, 200);
     }
-  }, []);
+  }, [startRecognition, stopSpeaking]);
 
-  const startRecognition = useCallback(() => {
-    if (typeof window === 'undefined') return;
-    const win = window as unknown as IWindow;
-    const SpeechRecognition = win.SpeechRecognition || win.webkitSpeechRecognition;
-
-    if (!SpeechRecognition) {
-      setIsVoiceSupported(false);
-      return;
-    }
-
-    if (isRecognitionActiveRef.current) {
-      return;
-    }
-
-    try {
-      const recognition = new SpeechRecognition();
-      recognition.continuous = true;
-      recognition.interimResults = true;
-      recognition.lang = 'en-US';
-
-      recognition.onstart = () => {
-        isRecognitionActiveRef.current = true;
-        setIsMicAllowed(true);
-        if (!isSpeakingRef.current && !isProcessingTurnRef.current) {
-          setVoiceStatus('listening');
-        }
-      };
-
-      recognition.onresult = (event: any) => {
-        let interim = '';
-        let finalUtterance = '';
-
-        for (let i = event.resultIndex; i < event.results.length; ++i) {
-          const item = event.results[i];
-          if (item.isFinal) {
-            finalUtterance += item[0].transcript;
-          } else {
-            interim += item[0].transcript;
-          }
-        }
-
-        setInterimTranscript(interim);
-
-        // Barge-in: if user starts speaking while Ava is speaking, cancel synthesis
-        if (interim.trim() && isSpeakingRef.current) {
-          stopSpeaking();
-        }
-
-        const trimmedFinal = finalUtterance.trim();
-        if (trimmedFinal && trimmedFinal !== lastProcessedTurnTextRef.current) {
-          setInterimTranscript('');
-          lastProcessedTurnTextRef.current = trimmedFinal;
-          // Process caller turn
-          handleCallerUtterance(trimmedFinal);
-        }
-      };
-
-      recognition.onerror = (event: any) => {
-        if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
-          setIsMicAllowed(false);
-          setErrorMessage('Microphone access denied. You can use the text interface fallback below.');
-          setVoiceStatus('error');
-        } else if (event.error !== 'no-speech') {
-          console.warn('Speech recognition warning:', event.error);
-        }
-      };
-
-      recognition.onend = () => {
-        isRecognitionActiveRef.current = false;
-        // If session is still active and not ended, safely restart recognition
-        if (sessionIdRef.current && !isProcessingTurnRef.current && sessionStatus === 'active') {
-          try {
-            recognition.start();
-          } catch {
-            // ignore
-          }
-        }
-      };
-
-      recognitionRef.current = recognition;
-      recognition.start();
-    } catch (err) {
-      console.error('Failed to initialize SpeechRecognition:', err);
-    }
-  }, [sessionStatus, stopSpeaking]);
-
-  // 4. Submit Turn (Caller speech or Text fallback)
+  // 7. Submit Turn (Caller speech or Text fallback)
   const handleCallerUtterance = useCallback(
     async (text: string) => {
       const currentSessionId = sessionIdRef.current;
@@ -262,9 +390,12 @@ export function useVoiceSession() {
         return;
       }
 
+      // Stop recognition while backend processes and prepares agent response
+      stopRecognition();
+      stopSpeaking();
+
       isProcessingTurnRef.current = true;
       setVoiceStatus('processing');
-      stopSpeaking();
 
       const turnId = `turn_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
 
@@ -286,6 +417,7 @@ export function useVoiceSession() {
         setMissingFields(response.missing_fields);
         setQualificationStatus(response.qualification_status);
         setSessionStatus(response.session_status);
+        sessionStatusRef.current = response.session_status;
 
         // Append agent response to transcript
         const agentTurn: TranscriptItem = {
@@ -314,7 +446,7 @@ export function useVoiceSession() {
           });
         } else {
           speakText(response.response, () => {
-            setVoiceStatus('listening');
+            // Callback handled inside speakText cooldown
           });
         }
       } catch (err: unknown) {
@@ -327,13 +459,14 @@ export function useVoiceSession() {
     [speakText, stopRecognition, stopSpeaking]
   );
 
-  // 5. Start Call Action
+  // 8. Start Call Action
   const startCall = useCallback(async () => {
     setErrorMessage(null);
     setVoiceStatus('connecting');
     setTranscript([]);
     setPersistedLead(null);
     lastProcessedTurnTextRef.current = '';
+    lastSpokenAgentTextRef.current = '';
 
     try {
       const newSession = await api.createSession();
@@ -341,6 +474,7 @@ export function useVoiceSession() {
       sessionIdRef.current = newSession.session_id;
       setConversationState(newSession.state);
       setSessionStatus(newSession.status);
+      sessionStatusRef.current = newSession.status;
 
       // Add initial greeting to transcript
       const greetingItem: TranscriptItem = {
@@ -351,18 +485,16 @@ export function useVoiceSession() {
       };
       setTranscript([greetingItem]);
 
-      // Speak greeting, then start speech recognition
-      speakText(newSession.greeting, () => {
-        startRecognition();
-      });
+      // Speak greeting with sequential turn-taking (mic will turn on AFTER greeting finishes)
+      speakText(newSession.greeting);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Could not create voice session';
       setErrorMessage(`Connection failed: ${msg}. Make sure the FastAPI backend is running.`);
       setVoiceStatus('error');
     }
-  }, [speakText, startRecognition]);
+  }, [speakText]);
 
-  // 6. End Call Action
+  // 9. End Call Action
   const endCall = useCallback(async () => {
     stopSpeaking();
     stopRecognition();
@@ -373,6 +505,7 @@ export function useVoiceSession() {
       try {
         const endRes = await api.endSession(currentSessionId);
         setSessionStatus(endRes.status);
+        sessionStatusRef.current = endRes.status;
         setQualificationStatus(endRes.qualification_status);
         setConversationState('ENDED');
 
@@ -397,7 +530,7 @@ export function useVoiceSession() {
     }
   }, [stopRecognition, stopSpeaking]);
 
-  // 7. Text Fallback Turn Submission
+  // 10. Text Fallback Turn Submission
   const submitTextTurn = useCallback(
     (text: string) => {
       if (!sessionIdRef.current) {
@@ -409,7 +542,7 @@ export function useVoiceSession() {
     [handleCallerUtterance]
   );
 
-  // 8. Toggle Mute
+  // 11. Toggle Mute
   const toggleMute = useCallback(() => {
     setIsMuted((prev) => {
       const next = !prev;
@@ -444,6 +577,7 @@ export function useVoiceSession() {
     errorMessage,
     startCall,
     endCall,
+    interruptSpeaking,
     submitTextTurn,
     toggleMute,
     clearError: () => setErrorMessage(null),
