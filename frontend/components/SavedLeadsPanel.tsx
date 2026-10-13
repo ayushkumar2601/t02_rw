@@ -1,9 +1,53 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { Database, RefreshCw, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { RotateCw } from 'lucide-react';
 import { api } from '@/lib/api';
 import { PersistedLeadRecord } from '@/types';
+
+const STORAGE_KEY = 'ava_saved_leads';
+
+function getStoredLeads(): PersistedLeadRecord[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function storeLeads(leads: PersistedLeadRecord[]) {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(leads));
+  } catch (err) {
+    console.error('Failed to save leads to localStorage:', err);
+  }
+}
+
+function mergeLeads(
+  primary: PersistedLeadRecord[],
+  secondary: PersistedLeadRecord[]
+): PersistedLeadRecord[] {
+  const map = new Map<string, PersistedLeadRecord>();
+  // Add secondary leads first
+  secondary.forEach((item) => {
+    if (item && item.lead_id) map.set(item.lead_id, item);
+  });
+  // Overlay primary leads (newer or authoritative from server)
+  primary.forEach((item) => {
+    if (item && item.lead_id) map.set(item.lead_id, item);
+  });
+  // Sort reverse chronological
+  return Array.from(map.values()).sort((a, b) => {
+    const dateA = new Date(a.created_at || a.updated_at || 0).getTime();
+    const dateB = new Date(b.created_at || b.updated_at || 0).getTime();
+    return dateB - dateA;
+  });
+}
 
 interface SavedLeadsPanelProps {
   lastUpdatedTrigger?: any;
@@ -14,15 +58,44 @@ export function SavedLeadsPanel({ lastUpdatedTrigger }: SavedLeadsPanelProps) {
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Load from localStorage immediately on mount
+  useEffect(() => {
+    const cached = getStoredLeads();
+    if (cached.length > 0) {
+      setLeads(cached);
+    }
+  }, []);
+
+  // Sync when a new lead is persisted during active session
+  useEffect(() => {
+    if (lastUpdatedTrigger && lastUpdatedTrigger.lead_id) {
+      setLeads((prev) => {
+        const merged = mergeLeads([lastUpdatedTrigger], prev);
+        storeLeads(merged);
+        return merged;
+      });
+    }
+  }, [lastUpdatedTrigger]);
+
   const fetchLeads = async () => {
     setLoading(true);
     setError(null);
     try {
-      const data = await api.listLeads(25, 0);
-      setLeads(data);
+      const serverLeads = await api.listLeads(50, 0);
+      setLeads((prev) => {
+        const merged = mergeLeads(serverLeads, prev);
+        storeLeads(merged);
+        return merged;
+      });
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Failed to fetch leads';
-      setError(msg);
+      // Backend offline or closed: fall back safely to cached leads in localStorage
+      const cached = getStoredLeads();
+      if (cached.length > 0) {
+        setLeads(cached);
+      } else {
+        const msg = err instanceof Error ? err.message : 'Failed to fetch leads';
+        setError(msg);
+      }
     } finally {
       setLoading(false);
     }
@@ -33,99 +106,83 @@ export function SavedLeadsPanel({ lastUpdatedTrigger }: SavedLeadsPanelProps) {
   }, [lastUpdatedTrigger]);
 
   return (
-    <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-sm">
-      <div className="flex items-center justify-between border-b border-slate-800 pb-3 mb-4">
+    <div className="bg-surface-card border border-hairline rounded-lg p-4">
+      {/* Header */}
+      <div className="flex items-center justify-between pb-3 border-b border-hairline mb-3">
         <div className="flex items-center gap-2">
-          <Database className="w-4 h-4 text-indigo-400" />
-          <h2 className="text-sm font-semibold text-slate-200">
-            Saved Leads in SQLite Database
-          </h2>
-          <span className="text-xs px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 font-mono">
-            {leads.length} records
-          </span>
+          <span className="text-xs font-medium text-ink">Saved leads</span>
+          <span className="text-[11px] font-mono text-muted">({leads.length})</span>
         </div>
+
         <button
           onClick={fetchLeads}
           disabled={loading}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium border border-slate-700/80 transition-colors cursor-pointer"
+          className="h-7 px-2.5 rounded-md bg-canvas hover:bg-surface-strong text-ink border border-hairline text-[11px] font-mono transition-colors cursor-pointer flex items-center gap-1.5"
         >
-          <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-          <span>Refresh</span>
+          <RotateCw className={`w-3 h-3 ${loading ? 'animate-spin' : ''}`} />
+          <span>refresh</span>
         </button>
       </div>
 
-      {error ? (
-        <p className="text-xs text-rose-400 py-3 text-center">{error}</p>
+      {error && leads.length === 0 ? (
+        <p className="text-xs text-semantic-error py-3">{error}</p>
       ) : leads.length === 0 ? (
-        <div className="text-center py-6 text-slate-500 text-xs">
-          No persisted leads found yet. Start and complete a qualification call to save a lead record.
-        </div>
+        <p className="text-center py-6 text-xs text-muted">No saved leads yet.</p>
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
             <thead>
-              <tr className="border-b border-slate-800 text-slate-400 font-medium font-mono text-[11px]">
-                <th className="pb-2.5 pr-3">Lead ID</th>
-                <th className="pb-2.5 pr-3">Company</th>
-                <th className="pb-2.5 pr-3">Industry</th>
-                <th className="pb-2.5 pr-3">Team</th>
-                <th className="pb-2.5 pr-3">Budget</th>
-                <th className="pb-2.5 pr-3">Qualification</th>
-                <th className="pb-2.5">Created At</th>
+              <tr className="border-b border-hairline text-muted font-mono text-[11px]">
+                <th className="pb-2 font-normal">ID</th>
+                <th className="pb-2 font-normal">Company</th>
+                <th className="pb-2 font-normal">Industry</th>
+                <th className="pb-2 font-normal">Team</th>
+                <th className="pb-2 font-normal">Budget</th>
+                <th className="pb-2 font-normal">Status</th>
+                <th className="pb-2 font-normal text-right">Created</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-800/60 text-slate-300">
+            <tbody className="divide-y divide-hairline-soft">
               {leads.map((l) => (
-                <tr key={l.lead_id} className="hover:bg-slate-800/40 transition-colors">
-                  <td className="py-2.5 pr-3 font-mono text-indigo-400 font-medium">
-                    {l.lead_id}
+                <tr key={l.lead_id} className="hover:bg-canvas/50 transition-colors">
+                  <td className="py-2.5 pr-2 font-mono text-[11px] text-muted">
+                    {l.lead_id.replace('lead_', '')}
                   </td>
-                  <td className="py-2.5 pr-3 font-medium text-slate-200">
-                    {l.company_name || <span className="text-slate-500 italic">Not provided</span>}
+                  <td className="py-2.5 pr-2 font-medium text-ink">
+                    {l.company_name || '—'}
                   </td>
-                  <td className="py-2.5 pr-3 text-slate-400">
-                    {l.business_type || <span className="text-slate-500 italic">Not provided</span>}
+                  <td className="py-2.5 pr-2 text-body">
+                    {l.business_type || '—'}
                   </td>
-                  <td className="py-2.5 pr-3">
-                    {l.company_size !== null ? (
-                      `${l.company_size}`
-                    ) : (
-                      <span className="text-slate-500 italic">Not provided</span>
-                    )}
+                  <td className="py-2.5 pr-2 font-mono text-body">
+                    {l.company_size !== null ? l.company_size : '—'}
                   </td>
-                  <td className="py-2.5 pr-3">
+                  <td className="py-2.5 pr-2 font-mono text-body">
                     {l.marketing_budget !== null ? (
                       `${l.budget_currency || ''} ${Number(l.marketing_budget).toLocaleString()}${
                         l.budget_period !== 'unknown' ? `/${l.budget_period}` : ''
                       }`
                     ) : (
-                      <span className="text-slate-500 italic">Not provided</span>
+                      '—'
                     )}
                   </td>
-                  <td className="py-2.5 pr-3">
+                  <td className="py-2.5 pr-2">
                     <span
-                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium ${
+                      className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-mono ${
                         l.qualification_status === 'qualified'
-                          ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                          ? 'bg-semantic-success/15 text-semantic-success border border-semantic-success/30'
                           : l.qualification_status === 'partially_qualified'
-                          ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                          : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
+                          ? 'bg-timeline-thinking/15 text-timeline-thinking border border-timeline-thinking/30'
+                          : 'bg-semantic-error/15 text-semantic-error border border-semantic-error/30'
                       }`}
                     >
-                      {l.qualification_status === 'qualified' ? (
-                        <CheckCircle2 className="w-3 h-3" />
-                      ) : (
-                        <AlertTriangle className="w-3 h-3" />
-                      )}
-                      <span>{l.qualification_status}</span>
+                      {l.qualification_status}
                     </span>
                   </td>
-                  <td className="py-2.5 text-slate-400 font-mono text-[11px]">
-                    {new Date(l.created_at).toLocaleString([], {
+                  <td className="py-2.5 font-mono text-[11px] text-muted text-right">
+                    {new Date(l.created_at).toLocaleDateString([], {
                       month: 'short',
                       day: 'numeric',
-                      hour: '2-digit',
-                      minute: '2-digit',
                     })}
                   </td>
                 </tr>

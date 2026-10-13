@@ -1,17 +1,7 @@
 'use client';
 
 import React from 'react';
-import {
-  Building2,
-  Users,
-  DollarSign,
-  Briefcase,
-  CheckCircle2,
-  Clock,
-  AlertTriangle,
-  XCircle,
-  Database,
-} from 'lucide-react';
+import { Check } from 'lucide-react';
 import {
   PersistedLeadRecord,
   QualificationStatus,
@@ -34,150 +24,104 @@ export function LeadSummary({
   sessionStatus,
   persistedLead,
 }: LeadSummaryProps) {
-  const getQualificationBadge = () => {
+  const renderStatusBadge = () => {
     switch (qualificationStatus) {
       case 'qualified':
         return (
-          <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-xs font-medium">
-            <CheckCircle2 className="w-3.5 h-3.5" />
-            <span>Qualified</span>
+          <span className="px-2 py-0.5 rounded-full text-[11px] font-mono bg-semantic-success/15 text-semantic-success border border-semantic-success/30">
+            qualified
           </span>
         );
       case 'partially_qualified':
         return (
-          <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20 text-xs font-medium">
-            <AlertTriangle className="w-3.5 h-3.5" />
-            <span>Partially Qualified</span>
+          <span className="px-2 py-0.5 rounded-full text-[11px] font-mono bg-timeline-thinking/15 text-timeline-thinking border border-timeline-thinking/30">
+            partially qualified
           </span>
         );
       case 'disqualified':
         return (
-          <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-rose-500/10 text-rose-400 border border-rose-500/20 text-xs font-medium">
-            <XCircle className="w-3.5 h-3.5" />
-            <span>Disqualified</span>
+          <span className="px-2 py-0.5 rounded-full text-[11px] font-mono bg-semantic-error/15 text-semantic-error border border-semantic-error/30">
+            disqualified
           </span>
         );
       default:
         return (
-          <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 text-xs font-medium">
-            <Clock className="w-3.5 h-3.5" />
-            <span>In Progress</span>
+          <span className="px-2 py-0.5 rounded-full text-[11px] font-mono bg-canvas text-muted border border-hairline">
+            in progress
           </span>
         );
     }
   };
 
   const formatBudget = () => {
-    if (lead.marketing_budget === null) {
-      return <span className="text-slate-500 italic">Not provided</span>;
-    }
+    if (lead.marketing_budget === null) return '—';
     const curr = lead.budget_currency || '';
-    const formattedNum = Number(lead.marketing_budget).toLocaleString();
+    const num = Number(lead.marketing_budget).toLocaleString();
     const period = lead.budget_period !== 'unknown' ? ` / ${lead.budget_period}` : '';
-    return `${curr} ${formattedNum}${period}`.trim();
+    return `${curr} ${num}${period}`.trim();
   };
 
   return (
-    <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-sm flex flex-col justify-between h-full">
+    <div className="bg-surface-card border border-hairline rounded-lg p-4 flex flex-col justify-between h-full">
       <div className="space-y-4">
-        {/* Panel Header */}
-        <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-          <h2 className="text-sm font-semibold text-slate-200">Extracted Lead Record</h2>
-          {getQualificationBadge()}
+        {/* Header */}
+        <div className="flex items-center justify-between pb-3 border-b border-hairline">
+          <span className="text-xs font-medium text-ink">Lead Details</span>
+          {renderStatusBadge()}
         </div>
 
-        {/* Lead Attribute Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 text-xs">
-          {/* Company Name */}
-          <div className="bg-slate-800/60 border border-slate-700/50 rounded-lg p-3">
-            <div className="flex items-center gap-1.5 text-slate-400 mb-1">
-              <Building2 className="w-3.5 h-3.5 text-indigo-400" />
-              <span>Company Name</span>
-            </div>
-            <div className="font-medium text-slate-100 text-sm">
-              {lead.company_name || <span className="text-slate-500 italic">Not provided</span>}
-            </div>
+        {/* Data List */}
+        <dl className="divide-y divide-hairline-soft text-xs">
+          <div className="py-2 flex items-center justify-between">
+            <dt className="text-muted">Company</dt>
+            <dd className="font-medium text-ink text-right">{lead.company_name || '—'}</dd>
           </div>
 
-          {/* Business Type */}
-          <div className="bg-slate-800/60 border border-slate-700/50 rounded-lg p-3">
-            <div className="flex items-center gap-1.5 text-slate-400 mb-1">
-              <Briefcase className="w-3.5 h-3.5 text-indigo-400" />
-              <span>Business Type / Industry</span>
-            </div>
-            <div className="font-medium text-slate-100 text-sm">
-              {lead.business_type || <span className="text-slate-500 italic">Not provided</span>}
-            </div>
+          <div className="py-2 flex items-center justify-between">
+            <dt className="text-muted">Industry</dt>
+            <dd className="font-medium text-ink text-right">{lead.business_type || '—'}</dd>
           </div>
 
-          {/* Company Size */}
-          <div className="bg-slate-800/60 border border-slate-700/50 rounded-lg p-3">
-            <div className="flex items-center gap-1.5 text-slate-400 mb-1">
-              <Users className="w-3.5 h-3.5 text-indigo-400" />
-              <span>Team Size (Employees)</span>
-            </div>
-            <div className="font-medium text-slate-100 text-sm">
-              {lead.company_size !== null ? (
-                `${lead.company_size} members`
-              ) : (
-                <span className="text-slate-500 italic">Not provided</span>
-              )}
-            </div>
+          <div className="py-2 flex items-center justify-between">
+            <dt className="text-muted">Team size</dt>
+            <dd className="font-mono text-ink text-right">
+              {lead.company_size !== null ? lead.company_size : '—'}
+            </dd>
           </div>
 
-          {/* Marketing Budget */}
-          <div className="bg-slate-800/60 border border-slate-700/50 rounded-lg p-3">
-            <div className="flex items-center gap-1.5 text-slate-400 mb-1">
-              <DollarSign className="w-3.5 h-3.5 text-indigo-400" />
-              <span>Marketing Budget</span>
-            </div>
-            <div className="font-medium text-slate-100 text-sm">{formatBudget()}</div>
+          <div className="py-2 flex items-center justify-between">
+            <dt className="text-muted">Budget</dt>
+            <dd className="font-mono text-ink text-right">{formatBudget()}</dd>
           </div>
-        </div>
+        </dl>
 
-        {/* Missing Fields Tracker */}
-        <div className="bg-slate-950/60 border border-slate-800 rounded-lg p-3 text-xs">
-          <div className="text-slate-400 mb-1.5 font-medium flex items-center justify-between">
-            <span>Missing Mandatory Qualification Fields:</span>
-            <span className="font-mono text-slate-500">({missingFields.length})</span>
-          </div>
-          {missingFields.length === 0 ? (
-            <p className="text-emerald-400 flex items-center gap-1 font-medium">
-              <CheckCircle2 className="w-3.5 h-3.5" /> All qualification criteria satisfied
-            </p>
-          ) : (
-            <div className="flex flex-wrap gap-1.5">
+        {/* Missing fields */}
+        {missingFields.length > 0 ? (
+          <div className="pt-2">
+            <div className="text-[11px] font-mono text-muted mb-1.5">pending fields</div>
+            <div className="flex flex-wrap gap-1">
               {missingFields.map((field) => (
                 <span
                   key={field}
-                  className="px-2 py-0.5 rounded bg-slate-800 text-slate-300 font-mono text-[11px] border border-slate-700"
+                  className="px-1.5 py-0.5 rounded text-[11px] font-mono bg-canvas border border-hairline text-muted"
                 >
                   {field}
                 </span>
               ))}
             </div>
-          )}
-        </div>
+          </div>
+        ) : (
+          <div className="pt-2 text-[11px] font-mono text-semantic-success flex items-center gap-1.5">
+            <Check className="w-3.5 h-3.5" />
+            <span>all fields captured</span>
+          </div>
+        )}
       </div>
 
-      {/* Footer Persistence Status */}
-      <div className="mt-4 pt-3 border-t border-slate-800 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-slate-400">
-        <div className="flex items-center gap-1.5">
-          <Database className="w-3.5 h-3.5 text-indigo-400" />
-          <span>Persistence:</span>
-          {persistedLead ? (
-            <span className="text-emerald-400 font-medium">
-              Saved in SQLite ({persistedLead.lead_id})
-            </span>
-          ) : sessionStatus === 'active' ? (
-            <span className="text-slate-500">In-progress turn (saves on call completion)</span>
-          ) : (
-            <span className="text-amber-400">Not persisted</span>
-          )}
-        </div>
-        <div className="font-mono text-[11px] text-slate-500">
-          Status: <span className="text-slate-300 uppercase">{sessionStatus}</span>
-        </div>
+      {/* Footer Meta */}
+      <div className="pt-3 mt-4 border-t border-hairline flex items-center justify-between text-[11px] font-mono text-muted">
+        <span>status: {sessionStatus}</span>
+        {persistedLead && <span>id: {persistedLead.lead_id}</span>}
       </div>
     </div>
   );

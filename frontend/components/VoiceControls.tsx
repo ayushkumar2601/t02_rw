@@ -2,13 +2,11 @@
 
 import React from 'react';
 import {
-  Mic,
   PhoneCall,
   PhoneOff,
   Volume2,
   VolumeX,
   Loader2,
-  Radio,
   Hand,
 } from 'lucide-react';
 import { ConversationState } from '@/types';
@@ -31,7 +29,6 @@ export function VoiceControls({
   voiceStatus,
   conversationState,
   isMuted,
-  isVoiceSupported,
   onStartCall,
   onEndCall,
   onToggleMute,
@@ -39,125 +36,111 @@ export function VoiceControls({
 }: VoiceControlsProps) {
   const isCallActive = !!sessionId && voiceStatus !== 'idle' && voiceStatus !== 'ended';
 
-  const getStatusBadge = () => {
+  const renderStatusBadge = () => {
     switch (voiceStatus) {
       case 'connecting':
         return (
-          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20 text-xs">
-            <Loader2 className="w-3.5 h-3.5 animate-spin" />
-            <span>Connecting...</span>
-          </div>
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-mono bg-canvas border border-hairline text-muted">
+            <Loader2 className="w-3 h-3 animate-spin" />
+            <span>connecting</span>
+          </span>
         );
       case 'listening':
         return (
-          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-xs animate-pulse">
-            <span className="w-2 h-2 rounded-full bg-emerald-400" />
-            <Mic className="w-3.5 h-3.5" />
-            <span>Listening to you (Speak now)</span>
-          </div>
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-mono bg-timeline-grep/15 text-timeline-grep border border-timeline-grep/30">
+            <span className="w-1.5 h-1.5 rounded-full bg-timeline-grep animate-pulse" />
+            <span>listening</span>
+          </span>
         );
       case 'processing':
         return (
-          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 text-xs">
-            <Loader2 className="w-3.5 h-3.5 animate-spin" />
-            <span>Ava thinking...</span>
-          </div>
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-mono bg-timeline-thinking/15 text-timeline-thinking border border-timeline-thinking/30">
+            <Loader2 className="w-3 h-3 animate-spin text-timeline-thinking" />
+            <span>thinking</span>
+          </span>
         );
       case 'speaking':
         return (
-          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-violet-500/10 text-violet-400 border border-violet-500/20 text-xs">
-            <Radio className="w-3.5 h-3.5 animate-pulse text-violet-400" />
-            <span>Ava speaking (Mic paused)</span>
-          </div>
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-mono bg-timeline-edit/15 text-timeline-edit border border-timeline-edit/30">
+            <span className="w-1.5 h-1.5 rounded-full bg-timeline-edit animate-pulse" />
+            <span>speaking</span>
+          </span>
         );
       case 'ended':
         return (
-          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-800 text-slate-400 border border-slate-700 text-xs">
-            <span>Call Completed</span>
-          </div>
+          <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-mono bg-surface-strong text-muted border border-hairline">
+            <span>ended</span>
+          </span>
         );
       case 'error':
         return (
-          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-rose-500/10 text-rose-400 border border-rose-500/20 text-xs">
-            <span>Error</span>
-          </div>
+          <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-mono bg-semantic-error/15 text-semantic-error border border-semantic-error/30">
+            <span>error</span>
+          </span>
         );
       default:
         return (
-          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-800/80 text-slate-400 border border-slate-700/60 text-xs">
-            <span>Ready to start</span>
-          </div>
+          <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-mono bg-canvas text-muted border border-hairline">
+            <span>ready</span>
+          </span>
         );
     }
   };
 
   return (
-    <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-sm">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        {/* Left Side: Call Buttons & Controls */}
-        <div className="flex flex-wrap items-center gap-3">
+    <div className="bg-surface-card border border-hairline rounded-lg p-3 sm:px-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        {/* Controls */}
+        <div className="flex items-center gap-2">
           {!isCallActive ? (
             <button
               onClick={onStartCall}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-sm transition-all shadow-md shadow-emerald-950 cursor-pointer active:scale-95"
+              className="h-9 px-4 rounded-md bg-primary hover:bg-primary-active text-on-primary text-xs font-medium transition-colors cursor-pointer flex items-center gap-2"
             >
-              <PhoneCall className="w-4 h-4" />
-              <span>Start Voice Call</span>
+              <PhoneCall className="w-3.5 h-3.5" />
+              <span>Start call</span>
             </button>
           ) : (
             <button
               onClick={onEndCall}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-medium text-sm transition-all shadow-md shadow-rose-950 cursor-pointer active:scale-95"
+              className="h-9 px-4 rounded-md bg-surface-card hover:bg-canvas text-semantic-error border border-hairline hover:border-hairline-strong text-xs font-medium transition-colors cursor-pointer flex items-center gap-2"
             >
-              <PhoneOff className="w-4 h-4" />
-              <span>End Call</span>
+              <PhoneOff className="w-3.5 h-3.5" />
+              <span>End call</span>
             </button>
           )}
 
-          {/* Interrupt Button (Visible while Ava is speaking) */}
           {voiceStatus === 'speaking' && onInterrupt && (
             <button
               onClick={onInterrupt}
-              title="Interrupt Ava and speak immediately"
-              className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/30 text-sm font-medium transition-all cursor-pointer active:scale-95 animate-pulse"
+              className="h-9 px-3 rounded-md bg-canvas hover:bg-surface-strong text-ink border border-hairline text-xs font-medium transition-colors cursor-pointer flex items-center gap-1.5"
             >
-              <Hand className="w-4 h-4" />
-              <span>Interrupt Ava</span>
+              <Hand className="w-3.5 h-3.5 text-primary" />
+              <span>Interrupt</span>
             </button>
           )}
 
-          {/* Mute Control */}
           <button
             onClick={onToggleMute}
             disabled={!isCallActive}
-            title={isMuted ? 'Unmute Ava speech' : 'Mute Ava speech'}
-            className={`p-2.5 rounded-lg border text-sm transition-colors cursor-pointer ${
-              !isCallActive
-                ? 'opacity-40 cursor-not-allowed border-slate-800 text-slate-500'
-                : isMuted
-                ? 'bg-amber-500/10 border-amber-500/30 text-amber-400'
-                : 'bg-slate-800/80 border-slate-700 text-slate-300 hover:bg-slate-700'
-            }`}
+            className={`h-9 w-9 rounded-md border text-xs flex items-center justify-center transition-colors cursor-pointer ${
+              isMuted
+                ? 'bg-canvas text-primary border-primary/40'
+                : 'bg-surface-card border-hairline hover:bg-canvas text-ink'
+            } ${!isCallActive ? 'opacity-30 cursor-not-allowed' : ''}`}
+            title={isMuted ? 'Unmute' : 'Mute'}
           >
-            {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+            {isMuted ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
           </button>
         </div>
 
-        {/* Right Side: Status Badges */}
-        <div className="flex flex-wrap items-center gap-2.5">
-          {getStatusBadge()}
+        {/* Status & State Indicators */}
+        <div className="flex items-center gap-2">
+          {renderStatusBadge()}
 
-          {/* State Badge */}
-          <div className="px-2.5 py-1 rounded-full bg-slate-800 border border-slate-700 text-xs font-mono text-slate-300">
-            State: <span className="text-indigo-400 font-semibold">{conversationState}</span>
-          </div>
-
-          {/* Session ID */}
-          {sessionId && (
-            <div className="hidden lg:block px-2.5 py-1 rounded-full bg-slate-800/60 border border-slate-700/40 text-[11px] font-mono text-slate-400">
-              ID: {sessionId.replace('sess_', '')}
-            </div>
-          )}
+          <span className="px-2 py-0.5 rounded text-[11px] font-mono bg-canvas border border-hairline text-muted">
+            {conversationState}
+          </span>
         </div>
       </div>
     </div>

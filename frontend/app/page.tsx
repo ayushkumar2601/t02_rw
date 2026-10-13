@@ -36,13 +36,14 @@ export default function Home() {
   } = useVoiceSession();
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans">
-      {/* 1. Header with Live Backend Connection Status */}
+    <div className="min-h-screen flex flex-col font-sans bg-canvas text-ink">
+      {/* Navigation */}
+
       <Header backendHealthy={backendHealthy} />
 
       {/* Main Container */}
-      <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 space-y-5">
-        {/* 2. Error and Browser Capability Alerts */}
+      <main className="flex-1 max-w-6xl w-full mx-auto px-6 py-6 space-y-4">
+        {/* Alerts */}
         <ErrorAlert
           message={errorMessage}
           isVoiceSupported={isVoiceSupported}
@@ -50,7 +51,7 @@ export default function Home() {
           onDismiss={clearError}
         />
 
-        {/* 3. Voice Control Panel */}
+        {/* Controls */}
         <VoiceControls
           sessionId={sessionId}
           voiceStatus={voiceStatus}
@@ -63,10 +64,9 @@ export default function Home() {
           onInterrupt={interruptSpeaking}
         />
 
-        {/* 4. Primary Grid: Transcript + Text Fallback vs Lead Summary */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-          {/* Left Column: Live Transcript + Text Input */}
-          <div className="lg:col-span-7 flex flex-col space-y-3">
+        {/* Grid: Transcript & Lead Summary */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+          <div className="lg:col-span-7 flex flex-col space-y-2.5">
             <TranscriptPanel
               transcript={transcript}
               interimTranscript={interimTranscript}
@@ -79,7 +79,6 @@ export default function Home() {
             />
           </div>
 
-          {/* Right Column: Lead Summary */}
           <div className="lg:col-span-5 flex flex-col">
             <LeadSummary
               lead={currentLead}
@@ -91,25 +90,17 @@ export default function Home() {
           </div>
         </div>
 
-        {/* 5. Saved Leads in SQLite Table */}
+        {/* Saved Leads */}
         <div className="pt-2">
           <SavedLeadsPanel lastUpdatedTrigger={persistedLead} />
         </div>
       </main>
 
-      {/* Footer */}
-      <footer className="border-t border-slate-900 bg-slate-950 px-6 py-4 mt-auto text-xs text-slate-500">
-        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
-          <div>
-            Ava SDR Voice Agent · Phase 1 Core Backend & Phase 2 Voice Dashboard
-          </div>
-          <div className="flex items-center gap-4 text-slate-400">
-            <span>₹0 Implementation Cost</span>
-            <span>·</span>
-            <span>Deterministic State Machine</span>
-            <span>·</span>
-            <span>SQLite Storage</span>
-          </div>
+      {/* Minimal Footer */}
+      <footer className="border-t border-hairline py-4 px-6 text-xs text-muted">
+        <div className="max-w-6xl mx-auto flex items-center justify-between">
+          <span>Ava</span>
+          <span className="font-mono text-[11px]">sqlite · local</span>
         </div>
       </footer>
     </div>

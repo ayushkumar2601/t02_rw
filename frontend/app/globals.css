@@ -1,26 +1,61 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+:root,
+.dark {
+  --canvas: #111110;
+  --canvas-soft: #171716;
+  --surface-card: #181817;
+  --surface-strong: #242422;
+  --ink: #ededeb;
+  --body: #a1a09a;
+  --body-strong: #ededeb;
+  --muted: #71706a;
+  --muted-soft: #52514c;
+  --hairline: #262624;
+  --hairline-soft: #1d1d1c;
+  --hairline-strong: #363632;
+  --primary: #f54e00;
+  --primary-active: #d04200;
+  --on-primary: #ffffff;
+  --timeline-thinking: #dfa88f;
+  --timeline-grep: #9fc9a2;
+  --timeline-read: #9fbbe0;
+  --timeline-edit: #c0a8dd;
+  --timeline-done: #c08532;
+  --semantic-error: #f25575;
+  --semantic-success: #2ec492;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+@theme {
+  --color-canvas: var(--canvas);
+  --color-canvas-soft: var(--canvas-soft);
+  --color-surface-card: var(--surface-card);
+  --color-surface-strong: var(--surface-strong);
+  --color-ink: var(--ink);
+  --color-body: var(--body);
+  --color-muted: var(--muted);
+  --color-muted-soft: var(--muted-soft);
+  --color-hairline: var(--hairline);
+  --color-hairline-soft: var(--hairline-soft);
+  --color-hairline-strong: var(--hairline-strong);
+  --color-primary: var(--primary);
+  --color-primary-active: var(--primary-active);
+  --color-on-primary: var(--on-primary);
+  --color-timeline-thinking: var(--timeline-thinking);
+  --color-timeline-grep: var(--timeline-grep);
+  --color-timeline-read: var(--timeline-read);
+  --color-timeline-edit: var(--timeline-edit);
+  --color-timeline-done: var(--timeline-done);
+  --color-semantic-error: var(--semantic-error);
+  --color-semantic-success: var(--semantic-success);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
+html,
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background-color: #111110 !important;
+  color: #ededeb !important;
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  -webkit-font-smoothing: antialiased;
 }
+
+

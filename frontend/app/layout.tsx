@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Ava — Autonomous Inbound Voice Agent | Digital Marketing Agency",
-  description: "Autonomous AI Sales Development Representative (SDR) for qualifying inbound digital agency leads.",
+  title: "Ava — Inbound Voice SDR",
+  description: "Voice-driven inbound qualification agent.",
 };
 
 export default function RootLayout({
@@ -27,7 +27,11 @@ export default function RootLayout({
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased dark`}
     >
-      <body className="min-h-full flex flex-col bg-slate-950 text-slate-100">{children}</body>
+
+      <body className="min-h-full flex flex-col bg-canvas text-ink font-sans selection:bg-primary/20 selection:text-ink">
+        {children}
+      </body>
     </html>
   );
 }
+
