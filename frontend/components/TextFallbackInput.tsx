@@ -40,7 +40,7 @@ export function TextFallbackInput({
       <button
         type="submit"
         disabled={disabled || !inputText.trim() || !sessionId}
-        className="h-7 w-7 rounded-md bg-ink hover:bg-ink/80 disabled:opacity-20 text-on-primary flex items-center justify-center transition-opacity cursor-pointer disabled:cursor-not-allowed"
+        className="h-7 w-7 rounded-md bg-ink hover:bg-ink/80 disabled:opacity-20 text-black flex items-center justify-center transition-opacity cursor-pointer disabled:cursor-not-allowed"
         title="Send response"
       >
         <ArrowUp className="w-3.5 h-3.5" />

@@ -56,7 +56,7 @@ export function TranscriptPanel({
                   className={`rounded-lg px-3.5 py-2 text-xs leading-relaxed ${
                     isAgent
                       ? 'bg-canvas text-ink border border-hairline'
-                      : 'bg-ink text-on-primary'
+                      : 'bg-ink text-black font-medium'
                   }`}
                 >
                   <p className="whitespace-pre-wrap">{item.text}</p>
