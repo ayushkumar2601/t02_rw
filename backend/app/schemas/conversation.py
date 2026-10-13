@@ -61,6 +61,11 @@ class LLMExtractionResponse(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
+    thought_process: Optional[str] = Field(
+        default=None,
+        description="Chain-of-thought reasoning step before structured decision",
+        max_length=2000,
+    )
     intent: Intent = Field(
         default=Intent.lead_qualification,
         description="Classified intent of caller utterance",

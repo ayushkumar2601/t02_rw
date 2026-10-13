@@ -11,6 +11,27 @@ Phase 1 implements the complete core backend, state machine intelligence, natura
 
 ---
 
+## 1.1 Core Algorithm Specification (Task 02 Answers)
+
+### Question 1: How does the agent handle interruptions?
+The system employs a multi-tiered half-duplex turn-taking and interruption protocol:
+1. **Audio Feedback Prevention:** During Ava's speech output (`window.speechSynthesis`), the browser microphone recognition is paused (`recognition.abort()`), and a 600ms acoustic dissipation cooldown runs post-playback before re-enabling listening. This prevents speaker audio from self-capturing as caller turns.
+2. **Explicit "Interrupt Ava" Action:** A dedicated UI interruption action (`onInterrupt`) is available while Ava is speaking. When triggered, it immediately halts `window.speechSynthesis.cancel()`, clears audio buffers, flushes speech queues, and re-activates the microphone to process the user's utterance immediately.
+3. **Acoustic Echo Suppression Filter (`isAcousticEcho`):** Any utterance matching Ava's recent prompt tokens (bleed from laptop speakers) is automatically detected via token-overlap analysis and discarded, preventing false-trigger interruptions.
+
+### Question 2: How does the agent extract the budget data?
+Budget extraction utilizes a deterministic parsing pipeline backed by canonical Pydantic schemas:
+1. **Numeric & Currency Normalization:** `ValidationService` scans utterances for numeric amounts, natural language numbers ("fifty thousand", "five lakhs", "two crore"), and currency indicators (₹, INR, rupees, $, USD, euros, EUR, £, GBP).
+2. **Billing Period Classification:** Detects periods ("monthly", "per month", "annually", "per year", "quarterly", "one-time") and maps them to canonical `BudgetPeriod` enums.
+3. **Clarification Protocol (`CLARIFY_BUDGET`):** If a caller provides an amount without currency or frequency (e.g., "we spend 50,000"), the system transitions to `CLARIFY_BUDGET` to ask specifically for the missing currency or period (maximum 1 retry). If the caller declines to provide budget, the field is accepted as `null` without halting the qualification flow.
+
+### Question 3: What happens if the user asks an off-topic question?
+Off-topic handling is governed by a global priority rule in `ConversationManager`:
+1. **Intent Classification:** The classifier flags queries outside qualification scope (e.g., "What are your office hours?", "Do you do TikTok ads?", "Are you human?") as `Intent.off_topic`.
+2. **Brief Answer + Re-anchor Loop:** Ava formulates a polite, single-sentence response answering the question, but **preserves the current conversation state** (e.g., `ASK_SIZE`).
+3. **Re-prompting Pending Question:** Ava immediately appends the pending qualification question back to the response (e.g., *"Yes, we manage social ads. Coming back to your business, approximately how many team members do you have?"*).
+
+
 ## 2. Component Architecture and Trust Boundaries
 
 The system is structured into modular layers with strict trust boundaries:
