@@ -51,6 +51,13 @@ app.include_router(sessions.router)
 app.include_router(leads.router)
 
 
+@app.get("/", include_in_schema=False)
+async def root():
+    """Redirect root to Swagger API documentation."""
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse(url="/docs")
+
+
 @app.get("/health", tags=["system"])
 async def health_check() -> Dict[str, Any]:
     """Service health status endpoint. Never exposes sensitive environment variables."""
